@@ -1,3 +1,40 @@
+/* Bundled fonts — the site never depends on what's installed locally. */
+@font-face {
+  font-family: "DocSans";
+  src: url("fonts/inter400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DocSans";
+  src: url("fonts/inter600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DocSans";
+  src: url("fonts/inter700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DocMono";
+  src: url("fonts/jbmono.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DocMono";
+  src: url("fonts/jbmono700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0b0c0f;
   --bg-elev: #101216;
@@ -6,13 +43,13 @@
   --text: #e6e6e9;
   --text-dim: #9a9ca3;
   --text-faint: #66686f;
-  --accent: #7c9eff;
-  --accent-dim: #4a5f99;
+  --accent: #c9c9c9;
+  --accent-dim: #4a4a4a;
   --code-bg: #0e0f13;
   --tag-bg: #1a1c22;
   --radius: 6px;
-  --mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
-  --sans: -apple-system, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  --mono: "DocMono", "JetBrains Mono", Consolas, monospace;
+  --sans: "DocSans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -31,7 +68,7 @@ html, body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-::selection { background: #2a3a63; color: #fff; }
+::selection { background: #33353c; color: #fff; }
 
 /* Layout */
 .layout {
@@ -71,7 +108,6 @@ a:hover { text-decoration: underline; }
   width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
 }
 
 .sidebar-header .tagline {
@@ -214,7 +250,7 @@ a:hover { text-decoration: underline; }
 .entry-name {
   font-family: var(--mono);
   font-size: 14.5px;
-  color: var(--text);
+  color: #c2c4ca;
   font-weight: 600;
 }
 
@@ -258,15 +294,22 @@ a:hover { text-decoration: underline; }
 }
 
 pre.code-block {
-  background: var(--code-bg);
+  background: var(--code-bg) !important;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
   overflow-x: auto;
-  font-family: var(--mono);
+  font-family: var(--mono) !important;
   font-size: 12.5px;
   line-height: 1.55;
   margin: 0;
+}
+
+pre.code-block, pre.code-block code {
+  color: #8a8d95 !important;
+  font-weight: 400 !important;
+  background: transparent !important;
+  text-shadow: none !important;
 }
 
 .code-file {
@@ -277,11 +320,11 @@ pre.code-block {
 }
 
 /* Simple lua-ish syntax highlight spans */
-.tok-comment { color: #6a6f7a; font-style: italic; }
-.tok-string { color: #a3d977; }
-.tok-number { color: #d6a34a; }
-.tok-keyword { color: #c78ffc; }
-.tok-func { color: #7c9eff; }
+.tok-plain { color: #8a8d95 !important; font-weight: 400 !important; }
+.tok-comment { color: #6a6f7a !important; font-style: italic; font-weight: 400 !important; }
+.tok-string { color: #8fa876 !important; font-weight: 400 !important; }
+.tok-number { color: #b9986a !important; font-weight: 400 !important; }
+.tok-keyword { color: #9a92b3 !important; font-weight: 400 !important; }
 
 /* Tables */
 table.ref-table {
@@ -322,12 +365,13 @@ table.ref-table td:nth-child(2) {
 .prose ul { color: var(--text-dim); padding-left: 20px; }
 .prose li { margin-bottom: 6px; }
 .prose code {
-  font-family: var(--mono);
-  background: var(--tag-bg);
+  font-family: var(--mono) !important;
+  background: var(--tag-bg) !important;
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 0.9em;
-  color: var(--accent);
+  color: #a3a5ac !important;
+  font-weight: 400 !important;
 }
 .prose strong { color: var(--text); }
 

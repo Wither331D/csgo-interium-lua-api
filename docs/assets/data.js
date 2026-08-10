@@ -65,6 +65,11 @@ const API_DATA = {
       id: "reference",
       label: "Reference Tables",
       pages: ["offsets", "classids"]
+    },
+    {
+      id: "about",
+      label: "About",
+      pages: ["credits"]
     }
   ],
 

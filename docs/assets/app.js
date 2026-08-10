@@ -16,26 +16,33 @@
       .replace(/>/g, "&gt;");
   }
 
-  // Extremely small Lua/JS-ish highlighter — good enough for readability, not a real tokenizer.
+  // Small Lua/JS-ish tokenizer — splits code into typed chunks so every
+  // character ends up inside a styled span (nothing is left to inherit
+  // default browser <code> styling).
+  const LUA_KEYWORDS = new Set(["local", "function", "end", "if", "then", "else", "elseif", "return", "for", "while", "do", "not", "and", "or", "nil", "true", "false", "break", "goto", "repeat", "until", "in"]);
+  const JS_KEYWORDS = new Set(["function", "var", "let", "const", "if", "else", "return", "for", "while", "new", "true", "false", "null"]);
+
   function highlight(code, lang) {
-    let s = escapeHtml(code);
-    // strings (single/double quoted, non-greedy, and [[ ]] long strings)
-    s = s.replace(/(\[\[[\s\S]*?\]\])/g, m => `<span class="tok-string">${m}</span>`);
-    s = s.replace(/(&quot;.*?&quot;|'.*?')/g, m => `<span class="tok-string">${m}</span>`);
-    // comments
-    if (lang === "js") {
-      s = s.replace(/(\/\/[^\n]*)/g, m => `<span class="tok-comment">${m}</span>`);
-    } else {
-      s = s.replace(/(--\[\[[\s\S]*?\]\]|--[^\n]*)/g, m => `<span class="tok-comment">${m}</span>`);
+    const keywords = lang === "js" ? JS_KEYWORDS : LUA_KEYWORDS;
+    const tokenRe = lang === "js"
+      ? /(\/\/[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b0x[0-9a-fA-F]+\b|\b\d+\.?\d*\b)|([A-Za-z_$][A-Za-z0-9_$]*)|(\s+)|([\s\S])/g
+      : /(--\[\[[\s\S]*?\]\]|--[^\n]*)|(\[\[[\s\S]*?\]\]|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b0x[0-9a-fA-F]+\b|\b\d+\.?\d*\b)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|([\s\S])/g;
+
+    let out = "";
+    let m;
+    while ((m = tokenRe.exec(code)) !== null) {
+      const [, comment, str, num, word, space, other] = m;
+      if (comment !== undefined) out += `<span class="tok-comment">${escapeHtml(comment)}</span>`;
+      else if (str !== undefined) out += `<span class="tok-string">${escapeHtml(str)}</span>`;
+      else if (num !== undefined) out += `<span class="tok-number">${escapeHtml(num)}</span>`;
+      else if (word !== undefined) {
+        const cls = keywords.has(word) ? "tok-keyword" : "tok-plain";
+        out += `<span class="${cls}">${escapeHtml(word)}</span>`;
+      }
+      else if (space !== undefined) out += escapeHtml(space);
+      else out += `<span class="tok-plain">${escapeHtml(other)}</span>`;
     }
-    // numbers
-    s = s.replace(/\b(0x[0-9a-fA-F]+|\d+\.?\d*)\b/g, m => `<span class="tok-number">${m}</span>`);
-    // keywords
-    const kw = lang === "js"
-      ? /\b(function|var|let|const|if|else|return|for|while|new)\b/g
-      : /\b(local|function|end|if|then|else|elseif|return|for|while|do|not|and|or|nil|true|false|break|goto)\b/g;
-    s = s.replace(kw, m => `<span class="tok-keyword">${m}</span>`);
-    return s;
+    return out;
   }
 
   function codeBlock(example) {
@@ -278,6 +285,15 @@ Hack.RegisterCallback(<span class="tok-string">"CreateMove"</span>, CreateMove)<
           <p>~30 of the ~165 scripts in the examples folder are binary/obfuscated and unreadable as text, so any API surface used <em>only</em> by those scripts is not represented here. This reference should be treated as a lower bound on the full API, not an exhaustive one.</p>
         </div>
       `
+    },
+    credits: {
+      title: "Credits",
+      html: `
+        <div class="prose">
+          <p>Special thanks to: <strong>валик</strong></p>
+          <p>Made by <strong>ui</strong></p>
+        </div>
+      `
     }
   };
 
@@ -328,7 +344,8 @@ Hack.RegisterCallback(<span class="tok-string">"CreateMove"</span>, CreateMove)<
     callbacks: "Callbacks",
     conventions: "Conventions",
     offsets: "Offset Catalog",
-    classids: "Class IDs"
+    classids: "Class IDs",
+    credits: "Credits"
   };
 
   function buildSidebar() {
