@@ -207,6 +207,65 @@
     `;
   }
 
+  function constTable(title, rows) {
+    if (!rows || rows.length === 0) return "";
+    return `
+      <div class="prose"><h2>${escapeHtml(title)}</h2></div>
+      <table class="ref-table">
+        <thead><tr><th>Name</th><th>Value</th><th>Meaning</th></tr></thead>
+        <tbody>${rows.map(r => `
+          <tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.value)}</td><td>${escapeHtml(r.desc)}</td></tr>
+        `).join("")}</tbody>
+      </table>
+    `;
+  }
+
+  function renderConstants() {
+    const c = API_DATA.constants || {};
+    mainEl.innerHTML = `
+      <h1>Constants</h1>
+      <div class="page-tagline">Trace masks, button bit indices, move types and physics values used by real movement scripts.</div>
+      <div class="callout">Remember that <code>SetBit</code> / <code>DelBit</code> / <code>IsBit</code> take a bit <strong>index</strong>, not the flag value. Passing the value (e.g. 4 for IN_DUCK instead of 2) silently sets the wrong button.</div>
+      ${constTable("Trace masks", c.masks)}
+      ${constTable("Button bit indices (cmd.buttons)", c.buttonBits)}
+      ${constTable("Move types (entity:GetMoveType())", c.moveTypes)}
+      ${constTable("Flag bits (m_fFlags)", c.flagBits)}
+      ${constTable("Physics values", c.physics)}
+      <div class="footer-note">Values observed in working community scripts. Verify against your build before relying on them.</div>
+    `;
+  }
+
+  function renderVars() {
+    const rows = (API_DATA.varsHandles || []).map(v => `
+      <tr><td>${escapeHtml(v.name)}</td><td>${escapeHtml(v.type)}</td><td>${escapeHtml(v.desc)}</td></tr>
+    `).join("");
+    mainEl.innerHTML = `
+      <h1>Built-in Vars Handles</h1>
+      <div class="page-tagline">The <code>Vars</code> table exposes the hack's own built-in settings, separate from user-registered <code>Menu.*</code> widgets. Read them with the bare <code>GetBool</code> / <code>GetInt</code> / <code>GetColor</code> functions, not <code>Menu.Get*</code>.</div>
+      <table class="ref-table">
+        <thead><tr><th>Handle</th><th>Type</th><th>Meaning</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="prose"><h2>Usage</h2></div>
+      <pre class="code-block"><code>${highlight(`-- Wrap in pcall: handles may not exist on every build.
+local function getVarBool(name)
+    if (Vars == nil) then return false end
+    local ok, handle = pcall(function() return Vars[name] end)
+    if (not ok or handle == nil) then return false end
+    local ok2, result = pcall(GetBool, handle)
+    return ok2 and result == true
+end
+
+if (getVarBool("misc_edgebug")) then
+    local key = GetInt(Vars.misc_edgebug_key)
+    if (key ~= 0 and InputSys.IsKeyDown(key)) then
+        -- the built-in edgebug bind is being held
+    end
+end`, "lua")}</code></pre>
+      <div class="footer-note">This list is not exhaustive — it covers handles seen in working scripts.</div>
+    `;
+  }
+
   const PROSE_PAGES = {
     intro: {
       title: "Introduction",
@@ -323,6 +382,10 @@ Hack.RegisterCallback(<span class="tok-string">"CreateMove"</span>, CreateMove)<
       renderOffsets();
     } else if (parts[0] === "page" && parts[1] === "classids") {
       renderClassIds();
+    } else if (parts[0] === "page" && parts[1] === "constants") {
+      renderConstants();
+    } else if (parts[0] === "page" && parts[1] === "vars") {
+      renderVars();
     } else if (parts[0] === "page" && parts[1]) {
       renderProse(parts[1]);
     } else {
@@ -345,6 +408,8 @@ Hack.RegisterCallback(<span class="tok-string">"CreateMove"</span>, CreateMove)<
     conventions: "Conventions",
     offsets: "Offset Catalog",
     classids: "Class IDs",
+    constants: "Constants",
+    vars: "Vars Handles",
     credits: "Credits"
   };
 

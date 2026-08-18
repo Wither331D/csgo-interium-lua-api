@@ -6,7 +6,7 @@ const API_DATA = {
   meta: {
     title: "Interium Lua API",
     subtitle: "Unofficial CS:GO Lua scripting reference for the Interium client",
-    sourceNote: "Compiled from ~135 readable real-world scripts found in the community examples folder. Some behavior is inferred from usage context rather than confirmed against source — treat signatures marked “inferred” as best-effort."
+    sourceNote: "Compiled from ~135 readable real-world scripts found in the community examples folder, cross-checked against the public w3rn3rrr/Interium-luas repository. Some behavior is inferred from usage context rather than confirmed against source — treat signatures marked “inferred” as best-effort. UPDATE: a real world trace, Utils.TraceLine, has since been recovered from INTERIUM.dll and is documented here — it collides with world/brush geometry, unlike the entities-only Utils.TraceLineOnlyEntities. It does NOT expose trace.fraction, trace.endpos or plane.normal, so results are read only via the trace object’s DidHit()/DidHitWorld()/IsVisible() methods. No prediction API (RunCommand/SetupMove/MoveHelper) has been confirmed; treat that as unavailable unless proven otherwise on your build."
   },
 
   // Top-level groups shown in the sidebar, in display order.
@@ -64,7 +64,7 @@ const API_DATA = {
     {
       id: "reference",
       label: "Reference Tables",
-      pages: ["offsets", "classids"]
+      pages: ["offsets", "classids", "constants", "vars"]
     },
     {
       id: "about",
@@ -300,8 +300,8 @@ const API_DATA = {
       example: { file: "1_Velocity_v3.lua", code: `Render.Poly(VelocityrraySize * 2, Menu.GetColor("VGcolor"), false, 2)` }
     },
     {
-      ns: "Render", name: "Render.PolyFilled", sig: "Render.PolyFilled(count, color)",
-      category: "rendering", desc: "Draws the accumulated AddPoly vertices as a filled polygon. Used for animated menu-handle shapes.",
+      ns: "Render", name: "Render.PolyFilled", sig: "Render.PolyFilled(count, color)  |  Render.PolyFilled(count, color, closed, thickness)",
+      category: "rendering", desc: "Draws the accumulated AddPoly vertices as a filled polygon. Used for animated menu-handle shapes. A four-argument form matching Render.Poly (count, color, closed, thickness) also appears in the wild — both call shapes are attested.",
       example: { file: "WaterUI.lua", code: `Render.PolyFilled(4, Color.new(20, 20, 20, Menu.GetInt("cOpacityMenuHandle")))` }
     },
     {
@@ -640,6 +640,11 @@ const API_DATA = {
       example: { file: "AntiBan_TeamKill-NiceL.lua", code: `Utils.TraceLineOnlyEntities(traceStart, traceEnd, 0x46004003, Local, tr)\nlocal Player = IEntityList.ToPlayer(tr.hit_entity)` }
     },
     {
+      ns: "Utils", name: "Utils.TraceLine", sig: "Utils.TraceLine(start, end, mask, skipEntity, outTrace)",
+      category: "math/vector, world, entities", desc: "WORLD ray-trace — unlike Utils.TraceLineOnlyEntities, this one collides with world/brush geometry, which makes wall and surface detection possible from Lua. Recovered from INTERIUM.dll; it does not appear in older community scripts. Fills outTrace (a trace_t / CGameTrace object). IMPORTANT: the binding does NOT expose trace.fraction, trace.endpos, or plane.normal — you can only ask whether the ray hit something, via the trace object's DidHit()/DidHitWorld()/IsVisible() methods. Distance must therefore be recovered indirectly (e.g. binary search on the ray length, or fixed-length probes). Calling it in large bursts has been observed to crash some builds — budget your traces per tick.",
+      example: { file: "AutoAlign (community)", code: `local tr = trace_t.new()\nlocal from = Vector.new(o.x, o.y, o.z + 32)\nlocal to   = Vector.new(o.x + dirX * 17.25, o.y + dirY * 17.25, o.z + 32)\n\n-- MASK_PLAYERSOLID_BRUSHONLY = 0x0001400B\nUtils.TraceLine(from, to, 0x0001400B, pLocal, tr)\nif (tr:DidHit()) then\n    -- something solid is within 17.25 units in this direction\nend` }
+    },
+    {
       ns: "Utils", name: "Utils.CorrectMovement", sig: "Utils.CorrectMovement(wishAngle, cmd, forwardSpeed, sideSpeed, ?)",
       category: "input, movement", desc: "Adjusts a CreateMove usercmd's move values so the player moves toward wishAngle at the given speeds. Used for auto-align/auto-walk features.",
       example: { file: "KibbeWater-GrenadeHelper.lua", code: `cmd.forwardmove = dist + 10\nUtils.CorrectMovement(wAng, cmd, cmd.forwardmove, 0, false)` }
@@ -719,7 +724,7 @@ const API_DATA = {
     },
     {
       ns: "Bare", name: "SetBit / DelBit / IsBit", sig: "SetBit(value, bitIndex)  |  DelBit(value, bitIndex)  |  IsBit(value, bitIndex)",
-      category: "misc/bit-flags", desc: "Set/clear/test a bit in an integer flags value, e.g. cmd.buttons or m_fFlags.",
+      category: "misc/bit-flags", desc: "Set/clear/test a bit in an integer flags value, e.g. cmd.buttons or m_fFlags. IMPORTANT: these take a bit INDEX, not the flag value. FL_ONGROUND is value 1 = index 0, so the check is IsBit(flags, 0). Likewise IN_JUMP (1<<1) is index 1 and IN_DUCK (1<<2) is index 2. Passing the flag value instead of the index is a common bug that silently makes the check never fire.",
       example: { file: "AntiBan_TeamKill-NiceL.lua", code: `if (not IsBit(pCmd.buttons, IN_ATTACK)) then return end\npCmd.buttons = DelBit(pCmd.buttons, IN_ATTACK)\n\n-- OpenDoorSpam-NiceL.lua\npCmd.buttons = SetBit(pCmd.buttons, IN_USE)` }
     },
     {
@@ -947,6 +952,16 @@ const API_DATA = {
       example: { file: "AntiBan_TeamKill-NiceL.lua", code: `local tr = trace_t.new()\nUtils.TraceLineOnlyEntities(traceStart, traceEnd, 0x46004003, Local, tr)\nlocal Player = IEntityList.ToPlayer(tr.hit_entity)` }
     },
     {
+      ns: "Structs", name: "CGameTrace.new", sig: "CGameTrace.new()",
+      category: "math/vector, world", desc: "Alternate constructor for a trace-result object, used where trace_t is unavailable. Community scripts probe both: try trace_t.new() first, fall back to CGameTrace.new(). The returned object is what you pass as the outTrace argument to Utils.TraceLine / Utils.TraceLineOnlyEntities.",
+      example: { file: "AutoAlign (community)", code: `local function createTraceResult()\n    if (trace_t ~= nil and trace_t.new ~= nil) then\n        local ok, r = pcall(trace_t.new)\n        if (ok) then return r end\n    end\n    if (CGameTrace ~= nil and CGameTrace.new ~= nil) then\n        local ok, r = pcall(CGameTrace.new)\n        if (ok) then return r end\n    end\n    return nil\nend` }
+    },
+    {
+      ns: "Structs", name: "trace:DidHit / :DidHitWorld / :IsVisible", sig: "trace:DidHit()  |  trace:DidHitWorld()  |  trace:IsVisible()",
+      category: "math/vector, world", desc: "Result methods on a trace object after Utils.TraceLine fills it. Since the binding exposes no .fraction / .endpos / .plane, these booleans are the ONLY way to read a world trace result. WARNING: DidHitWorld() dereferences the hit entity internally and has been observed to crash on brush/world traces in some builds — DidHit() only reads trace flags and is the safer choice. IsVisible() is the inverse (true when nothing was hit). Probe for whichever exists and prefer DidHit.",
+      example: { file: "AutoAlign (community)", code: `if (traceResult.DidHit ~= nil) then\n    traceHit = function(tr) return tr:DidHit() end\nelseif (traceResult.DidHitWorld ~= nil) then\n    traceHit = function(tr) return tr:DidHitWorld() end\nelseif (traceResult.IsVisible ~= nil) then\n    traceHit = function(tr) return not tr:IsVisible() end\nend` }
+    },
+    {
       ns: "Structs", name: "CreateMove usercmd (cmd / pCmd)", sig: "cmd.buttons  |  cmd.viewangles  |  cmd.forwardmove  |  cmd.sidemove  |  cmd.mousedx  |  cmd.mousedy",
       category: "input, movement", desc: "Not a .new() constructor — this is the struct passed as the first parameter of every CreateMove callback. Fields: .buttons (bitflags, use with SetBit/DelBit/IsBit), .viewangles (QAngle), .forwardmove, .sidemove, .mousedx, .mousedy.",
       example: { file: "KibbeWater-AdvancedGriefing.lua", code: `cmd.viewangles = wAng\ncmd.forwardmove = dist + 1\ncmd.buttons = SetBit(cmd.buttons, 2)` }
@@ -1000,6 +1015,7 @@ const API_DATA = {
     { cls: "DT_BasePlayer", prop: "m_iObserverMode", desc: "Spectator observer mode" },
     { cls: "DT_BasePlayer", prop: "m_hObserverTarget", desc: "Spectator's current observed target handle" },
     { cls: "DT_CSPlayer", prop: "m_flStamina", desc: "Player stamina" },
+    { cls: "DT_BasePlayer", prop: "m_flMaxspeed", desc: "Current max movement speed. May not resolve on every build — guard the lookup and fall back to a constant if it returns nil/0." },
     { cls: "DT_CSPlayer", prop: "m_iAccount", desc: "Player money" },
     { cls: "DT_CSPlayer", prop: "m_ArmorValue", desc: "Player armor" },
     { cls: "DT_CSPlayer", prop: "m_bIsScoped", desc: "Whether player is scoped in" },
@@ -1021,6 +1037,53 @@ const API_DATA = {
   ],
 
   offsetExample: { file: "KibbeWater-BombTimer.lua", code: `local Blow_Offset = Hack.GetOffset("DT_PlantedC4", "m_flC4Blow")\nlocal Site_Offset = Hack.GetOffset("DT_PlantedC4", "m_nBombSite")\nlocal Ticking_Offset = Hack.GetOffset("DT_PlantedC4", "m_bBombTicking")\n-- ...\ntimeLeft = bomb:GetPropFloat(Blow_Offset) - IGlobalVars.curtime\nsite = bomb:GetPropInt(Site_Offset)\nticking = bomb:GetPropBool(Ticking_Offset)` },
+
+  constants: {
+    masks: [
+      { name: "MASK_PLAYERSOLID_BRUSHONLY", value: "0x0001400B", desc: "World/brush geometry only. contents_solid | contents_moveable | contents_window | contents_playerclip | contents_grate. The mask to use for wall detection." },
+      { name: "MASK_PLAYERSOLID", value: "0x0201400B", desc: "Player-solid including entities. Used for ceiling checks and general collision." },
+      { name: "(entities-only example mask)", value: "0x46004003", desc: "Seen passed to Utils.TraceLineOnlyEntities in older community scripts." }
+    ],
+    buttonBits: [
+      { name: "IN_ATTACK", value: "0", desc: "Bit index for primary fire" },
+      { name: "IN_JUMP", value: "1", desc: "Bit index for jump" },
+      { name: "IN_DUCK", value: "2", desc: "Bit index for duck" },
+      { name: "IN_FORWARD", value: "3", desc: "Bit index for forward" },
+      { name: "IN_BACK", value: "4", desc: "Bit index for back" },
+      { name: "IN_USE", value: "5", desc: "Bit index for use" },
+      { name: "IN_MOVELEFT", value: "9", desc: "Bit index for strafe left" },
+      { name: "IN_MOVERIGHT", value: "10", desc: "Bit index for strafe right" }
+    ],
+    moveTypes: [
+      { name: "MOVETYPE_WALK", value: "2", desc: "Normal walking movement" },
+      { name: "MOVETYPE_FLY", value: "4", desc: "Flying" },
+      { name: "MOVETYPE_NOCLIP", value: "8", desc: "Noclip — movement scripts should bail out" },
+      { name: "MOVETYPE_LADDER", value: "9", desc: "On a ladder — movement scripts should bail out" },
+      { name: "MOVETYPE_OBSERVER", value: "10", desc: "Spectating" }
+    ],
+    flagBits: [
+      { name: "FL_ONGROUND", value: "0", desc: "Bit index in m_fFlags. IsBit(flags, 0) is the on-ground check." }
+    ],
+    physics: [
+      { name: "surf / texture-bug vel.z signature", value: "-6.25", desc: "-(sv_gravity * interval_per_tick * 0.5) = -(800 * 0.015625 * 0.5) at 64 tick. A held surf reads exactly this because the surface cancels vertical velocity between Source's two half-gravity applications. Community scripts test math.abs(vel.z + 6.25) < 0.015." }
+    ]
+  },
+
+  varsHandles: [
+    { name: "Vars.misc_autostrafe", type: "bool", desc: "Built-in autostrafe enabled" },
+    { name: "Vars.misc_autostrafe_enabletype", type: "int", desc: "Autostrafe mode; 1 = key-bound" },
+    { name: "Vars.misc_autostrafe_key", type: "int", desc: "Autostrafe key (virtual-key code)" },
+    { name: "Vars.misc_edge", type: "bool", desc: "Edge jump enabled" },
+    { name: "Vars.misc_edge_enabletype", type: "int", desc: "Edge jump mode; 1 = key-bound" },
+    { name: "Vars.misc_edgeKey", type: "int", desc: "Edge jump key (note the capital K — inconsistent with the others)" },
+    { name: "Vars.misc_longjump", type: "bool", desc: "Long jump enabled" },
+    { name: "Vars.misc_longjump_key", type: "int", desc: "Long jump key" },
+    { name: "Vars.misc_jumpbug", type: "bool", desc: "Jump bug enabled" },
+    { name: "Vars.misc_jumpbug_key", type: "int", desc: "Jump bug key" },
+    { name: "Vars.misc_edgebug", type: "bool", desc: "Edge bug enabled" },
+    { name: "Vars.misc_edgebug_key", type: "int", desc: "Edge bug key" },
+    { name: "Vars.color_chams_enemy_visible", type: "color", desc: "Enemy visible chams color (read/write via GetColor/SetColor)" }
+  ],
 
   classIds: [
     { id: 40, desc: "Player (CCSPlayer)" },
